@@ -26,3 +26,14 @@ dist-ssr
 .env
 .env.local
 .env.*.local
+
+# Coverage
+coverage
+*.lcov
+
+# Build artifacts
+*.tsbuildinfo
+
+# Temporary files
+*.tmp
+*.temp

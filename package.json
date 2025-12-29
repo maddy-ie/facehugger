@@ -5,11 +5,11 @@
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview",
-    "lint": "eslint src --ext .ts,.tsx",
-    "type-check": "tsc --noEmit"
+    "dev": "bun vite",
+    "build": "bunx tsc && bun vite build",
+    "preview": "bun vite preview",
+    "lint": "bunx eslint src --ext .ts,.tsx",
+    "type-check": "bunx tsc --noEmit"
   },
   "keywords": [
     "react",
@@ -19,20 +19,22 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@monaco-editor/react": "^4.4.6",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
-    ,"@monaco-editor/react": "^4.4.6"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.1.18",
+    "@types/node": "^25.0.3",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
     "@vitejs/plugin-react": "^4.2.0",
     "eslint": "^8.0.0",
+    "tailwindcss": "^4.0.0",
     "terser": "^5.44.1",
     "typescript": "^5.3.3",
     "vite": "^5.0.0"
   }
 }
-

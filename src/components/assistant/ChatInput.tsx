@@ -1,112 +1,182 @@
-import { FC, useState } from 'react'
-import { useAssistant } from '../../contexts/AssistantContext'
-import { wsClient } from '../../services/websocket'
+import { FC, useState, useRef, useEffect } from "react";
+import { useAssistant } from "../../contexts/AssistantContext";
+import { api } from "../../services/api";
+import {
+  PlusIcon,
+  SendIcon,
+  FileIcon,
+  FolderIcon,
+  FileTextIcon,
+  BarChart3Icon,
+  ImageIconComponent,
+  BotIcon,
+} from "../common/Icons";
+import {
+  Button,
+  DropdownMenuRoot,
+  DropdownMenuItem,
+  SelectRoot,
+  SelectItem,
+} from "../ui";
+
+type OutputType = "Response" | "Report" | "Graph" | "Visual";
 
 export const ChatInput: FC = () => {
-  const [message, setMessage] = useState('')
-  const [isSending, setIsSending] = useState(false)
-  const { currentSession, addMessage, isConnected } = useAssistant()
+  const [message, setMessage] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  const [showContextMenu, setShowContextMenu] = useState(false);
+  const [outputType, setOutputType] = useState<OutputType>("Response");
+  const { addMessage } = useAssistant();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-resize textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height =
+        Math.min(textareaRef.current.scrollHeight, 120) + "px";
+    }
+  }, [message]);
 
   const handleSend = async () => {
-    if (!message.trim() || !currentSession || !isConnected) {
-      return
+    if (!message.trim() || isSending) {
+      return;
     }
 
     // Add user message to UI
     const userMessage = {
-      role: 'user' as const,
+      role: "user" as const,
       content: message,
       timestamp: new Date().toISOString(),
-      status: 'pending' as const,
-    }
-    addMessage(userMessage)
+      status: "pending" as const,
+    };
+    addMessage(userMessage);
+    const sentMessage = message;
+    setMessage("");
 
-    // Send to backend
-    setIsSending(true)
+    // Send to backend via REST API
+    setIsSending(true);
     try {
-      wsClient.sendMessage(
-        message
-      )
-      setMessage('')
+      const response = await api.sendMessage("0", sentMessage);
+      addMessage({
+        role: "model",
+        content: response.reply,
+        timestamp: new Date().toISOString(),
+        status: "delivered",
+      });
     } catch (error) {
-      console.error('Failed to send message:', error)
+      console.error("Failed to send message:", error);
+      addMessage({
+        role: "model",
+        content: `Error: ${
+          error instanceof Error ? error.message : "Failed to send message"
+        }`,
+        timestamp: new Date().toISOString(),
+        status: "error",
+      });
     } finally {
-      setIsSending(false)
+      setIsSending(false);
     }
-  }
+  };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSend()
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      if (!isSending) {
+        handleSend();
+      }
     }
-  }
-
-  if (!currentSession) {
-    return (
-      <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-background-light via-background-light to-transparent dark:from-background-dark dark:via-background-dark pt-12">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center text-gray-500 dark:text-gray-400">
-            Select a session to start chatting
-          </div>
-        </div>
-      </div>
-    )
-  }
+  };
 
   return (
-    <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-background-light via-background-light to-transparent dark:from-background-dark dark:via-background-dark pt-12">
-      <div className="max-w-4xl mx-auto relative">
-        {!isConnected && (
-          <div className="mb-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 text-yellow-700 dark:text-yellow-300 text-xs rounded-lg">
-            ⚠️ Connection lost. Attempting to reconnect...
-          </div>
-        )}
-        <div className="relative bg-white dark:bg-sidebar-dark rounded-xl border border-gray-300 dark:border-border-dark shadow-lg focus-within:ring-2 focus-within:ring-primary/50 focus-within:border-primary transition-all">
+    <div className="bg-bg-1 p-4">
+      <div className="bg-bg-0 rounded-2xl p-4 flex flex-col border border-border-light max-w-5xl mx-auto w-full">
+        {/* Main input area */}
+        <div className="flex-1 rounded-xl px-0 py-3 overflow-auto mb-2 max-h-[320px]">
           <textarea
+            ref={textareaRef}
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            onKeyPress={handleKeyPress}
-            disabled={!isConnected || isSending}
-            className="w-full bg-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 border-none rounded-xl py-4 pl-4 pr-12 resize-none focus:ring-0 max-h-[200px] overflow-y-auto disabled:opacity-50 disabled:cursor-not-allowed"
-            placeholder="Message LiMSight Assistant..."
+            onKeyDown={handleKeyDown}
+            placeholder="Type your prompt here..."
+            disabled={isSending}
             rows={1}
-            style={{ minHeight: '56px' }}
+            className="w-full bg-transparent resize-none outline-none text-text placeholder:text-text-muted text-base min-h-[24px]"
           />
-          <div className="absolute bottom-2 right-2 flex items-center gap-1">
-            <button
-              onClick={handleSend}
-              disabled={!isConnected || isSending || !message.trim() || !currentSession}
-              className="p-2 text-white bg-primary rounded-lg hover:bg-primary/90 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <span className="material-symbols-outlined text-[20px] leading-none">
-                {isSending ? 'hourglass_empty' : 'arrow_upward'}
-              </span>
-            </button>
-          </div>
         </div>
-        <div className="flex justify-between items-center mt-2 px-1">
+
+        {/* Bottom controls */}
+        <div className="flex items-center justify-between">
+          {/* Left side - Context menu */}
           <div className="flex items-center gap-2">
-            <button
-              className="p-1.5 text-gray-500 hover:text-primary dark:text-gray-400 dark:hover:text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={!isConnected}
-              title="Attach file"
+            <DropdownMenuRoot
+              open={showContextMenu}
+              onOpenChange={setShowContextMenu}
+              trigger={
+                <button
+                  className="w-10 h-10 rounded-lg border border-border bg-transparent hover:bg-bg-1 text-text flex items-center justify-center transition-colors"
+                  title="Add context"
+                >
+                  <PlusIcon />
+                </button>
+              }
             >
-              <span className="material-symbols-outlined text-[20px]">attach_file</span>
-            </button>
-            <button
-              className="p-1.5 text-gray-500 hover:text-primary dark:text-gray-400 dark:hover:text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={!isConnected}
-              title="Voice Input"
-            >
-              <span className="material-symbols-outlined text-[20px]">mic</span>
-            </button>
+              <DropdownMenuItem
+                icon={<FileIcon />}
+                onClick={() => setShowContextMenu(false)}
+              >
+                Add file
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                icon={<FolderIcon />}
+                onClick={() => setShowContextMenu(false)}
+              >
+                Add folder
+              </DropdownMenuItem>
+            </DropdownMenuRoot>
           </div>
-          <p className="text-[11px] text-gray-400 dark:text-gray-500 text-center">
-            AI can make mistakes. Consider checking important information.
-          </p>
+
+          {/* Right side - Send controls */}
+          <div className="flex items-center gap-2">
+            {/* Output type selector */}
+            <SelectRoot
+              value={outputType}
+              onValueChange={(value) => setOutputType(value as OutputType)}
+              placeholder="Output type"
+            >
+              <SelectItem value="Response" icon={<BotIcon />}>
+                Response
+              </SelectItem>
+              <SelectItem value="Report" icon={<FileTextIcon />}>
+                Report
+              </SelectItem>
+              <SelectItem value="Graph" icon={<BarChart3Icon />}>
+                Graph
+              </SelectItem>
+              <SelectItem value="Visual" icon={<ImageIconComponent />}>
+                Visual
+              </SelectItem>
+            </SelectRoot>
+
+            {/* Send button */}
+            <Button
+              onClick={handleSend}
+              disabled={!message.trim() || isSending}
+              variant="primary"
+              size="md"
+              icon={
+                isSending ? (
+                  <div className="w-5 h-5 border-2 border-text-on-accent/30 border-t-text-on-accent rounded-full animate-spin" />
+                ) : (
+                  <SendIcon />
+                )
+              }
+            >
+              {isSending ? "Sending" : "Send"}
+            </Button>
+          </div>
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
